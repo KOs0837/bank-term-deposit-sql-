@@ -188,3 +188,42 @@ From
 clients
 Group by 1,2,3
 
+---------------------Lead scoring---------------------
+
+SELECT 
+    id,
+    job,
+    balance,
+ 
+    (CASE WHEN balance > (SELECT AVG(balance) FROM clients) THEN 3 ELSE 0 END +
+     CASE WHEN housing = 'no' THEN 2 ELSE 0 END +
+     CASE WHEN loan = 'no' THEN 1 ELSE 0 END +
+     CASE WHEN contact = 'cellular' THEN 2 ELSE 0 END +
+     CASE WHEN previous > 0 THEN 2 ELSE 0 END) AS total_score
+FROM clients
+WHERE y = 'no' 
+limit 50
+
+---------------------Drop-off Analysis---------------------
+WITH Campaign_Performance AS (
+    SELECT 
+        campaign,
+        COUNT(*) AS total_calls,
+        COUNT(*) FILTER (WHERE y = 'yes') AS subscriptions
+    FROM clients
+    GROUP BY 1
+)
+SELECT 
+    campaign,
+    subscriptions,
+    total_calls,
+    ROUND(CAST(subscriptions AS NUMERIC) / total_calls, 3) AS conversion_rate,
+
+    ROUND(
+        LAG(CAST(subscriptions AS NUMERIC) / total_calls) OVER (ORDER BY campaign) 
+        - (CAST(subscriptions AS NUMERIC) / total_calls), 3
+    ) AS drop_off_rate
+FROM Campaign_Performance
+WHERE total_calls > 10 
+ORDER BY campaign
+
